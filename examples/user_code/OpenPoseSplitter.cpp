@@ -9,8 +9,12 @@
 #include <openpose/flags.hpp>
 // OpenPose dependencies
 #include <openpose/headers.hpp>
+#include <WinSock2.h>
+#include <Ws2tcpip.h>
+#pragma comment(lib, "ws2_32.lib")
 
 constexpr long double PI = 3.141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825342117067982148086513282306647093844;
+constexpr int UDP_PORT = 12345;
 
 // Custom OpenPose flags
 // Display
@@ -22,10 +26,12 @@ class UserOutputClass
 {
 private:
 	struct coordinate {
-		float x;
-		float y;
+		double x;
+		double y;
 	};
 	std::vector<std::vector<coordinate>> keyPointsPerson;
+
+	std::array<int, 4> maxPersonsPerBox{0};
 public:
 	bool display(const std::shared_ptr<std::vector<std::shared_ptr<op::Datum>>>& datumsPtr)
 	{
@@ -85,12 +91,12 @@ public:
 			op::opLog("Nullptr or empty datumsPtr found.", op::Priority::High);
 	}
 
-	void splitPersons(const std::shared_ptr<std::vector<std::shared_ptr<op::Datum>>>& datumsPtr)
+	coordinate splitPersons(const std::shared_ptr<std::vector<std::shared_ptr<op::Datum>>>& datumsPtr)
 	{
 		static double prevFrameTime = 0.0;
 		if (datumsPtr == nullptr || datumsPtr->empty()) {
 			op::opLog("Nullptr or empty datumsPtr found.", op::Priority::High);
-			return;
+			return coordinate{};
 		}
 
 		const cv::Mat cvMat = OP_OP2CVCONSTMAT(datumsPtr->at(0)->cvOutputData);
@@ -114,10 +120,10 @@ public:
 
 
 		std::array<int, 4> personsInBox{ 0 };
-		std::array<int, 4> personsInBoxSitting{ 0 };
+		std::array<int, 4> personsInBoxStanding{ 0 };
 		for (const auto& keypoints : keyPointsPerson) {
-			const float x = keypoints[8].x != 0 ? keypoints[8].x : keypoints[1].x;
-			const float y = keypoints[8].y != 0 ? keypoints[8].y : keypoints[1].y;
+			const double x = keypoints[8].x != 0 ? keypoints[8].x : keypoints[1].x;
+			const double y = keypoints[8].y != 0 ? keypoints[8].y : keypoints[1].y;
 
 			int boxIndex = -1;
 
@@ -137,25 +143,43 @@ public:
 				if (checkSitting(keypoints)) {
 					op::opLog(label);
 					label += " sitting";
-					personsInBoxSitting[boxIndex]++;
 				}
 				else {
 					label += " standing";
+					personsInBoxStanding[boxIndex]++;
 				}
 				cv::putText(cvMat, label, textPosition, cv::FONT_HERSHEY_SIMPLEX, 1, color, 2);
 			}
 		}
-		printPersonInBoxes(personsInBox);
+		return calculateCoordinatesStanding(personsInBox, personsInBoxStanding);
 	}
 
-	void printPersonInBoxes(std::array<int, 4> personsInBox) {
-		int i = 0;
-		for each (auto var in personsInBox)
-		{
-			++i;
-			if (var != 0)
-				op::opLog("Persons in Box " + std::to_string(i) + ": " + std::to_string(var));
+	coordinate calculateCoordinatesStanding(std::array<int, 4> personsInBox, std::array<int, 4> personsInBoxStanding) {
+		for (int i = 0; i < personsInBox.size(); i++) {
+			maxPersonsPerBox[i] = max(maxPersonsPerBox[i], personsInBox[i]);
+			op::opLog("MaxPerson Box " + std::to_string(i) + ": " + std::to_string(maxPersonsPerBox[i]));
 		}
+		std::array<coordinate, 4> averagePersonsStanding{};
+		averagePersonsStanding[0].x = -1.0 * (maxPersonsPerBox[0] != 0 ? personsInBoxStanding[0] / maxPersonsPerBox[0] : 0.0);
+		averagePersonsStanding[0].y = 1.0 * (maxPersonsPerBox[0] != 0 ? personsInBoxStanding[0] / maxPersonsPerBox[0] : 0.0);
+
+		averagePersonsStanding[1].x = 1.0 * (maxPersonsPerBox[1] != 0 ? (personsInBoxStanding[1] / maxPersonsPerBox[1]) : 0.0);
+		averagePersonsStanding[1].y = 1.0 * (maxPersonsPerBox[1] != 0 ? (personsInBoxStanding[1] / maxPersonsPerBox[1]) : 0.0);
+
+
+		averagePersonsStanding[2].x = -1.0 * (maxPersonsPerBox[2] != 0 ? (personsInBoxStanding[2] / maxPersonsPerBox[2]) : 0.0);
+		averagePersonsStanding[2].y = -1.0 * (maxPersonsPerBox[2] != 0 ? (personsInBoxStanding[2] / maxPersonsPerBox[2]) : 0.0);
+																														  
+		averagePersonsStanding[3].x = 1.0 * (maxPersonsPerBox[3] != 0 ? personsInBoxStanding[3] / maxPersonsPerBox[3] : 0.0);
+		averagePersonsStanding[3].y = -1.0 * (maxPersonsPerBox[3] != 0 ? personsInBoxStanding[3] / maxPersonsPerBox[3] : 0.0);
+
+		coordinate cord{};
+
+		cord.x = averagePersonsStanding[0].x + averagePersonsStanding[1].x + averagePersonsStanding[2].x + averagePersonsStanding[3].x;
+		cord.y = averagePersonsStanding[0].y + averagePersonsStanding[1].y + averagePersonsStanding[2].y + averagePersonsStanding[3].y;
+
+		//op::opLog("x: " + std::to_string(cord.x) + ", y: " + std::to_string(cord.y));
+		return cord;
 	}
 
 	bool checkSitting(const std::vector<coordinate>& keypointsSinglePerson) {
@@ -183,13 +207,38 @@ public:
 		const double kneeAngleInRad = acos(nSkalar / (lengthHip * lengthKnee));
 		const auto angleInDegree = kneeAngleInRad * 360.0 / (2 * PI);
 		if (angleInDegree > 40) {
-			op::opLog("\n------------------------");
-			op::opLog("Hip Points: " + std::to_string(midHip.x) + "/" + std::to_string(midHip.y));
-			op::opLog("Knee Points: " + std::to_string(knee.x) + "/" + std::to_string(knee.y));
-			op::opLog("Knee angle: " + std::to_string(angleInDegree), op::Priority::Max);
-			op::opLog("------------------------");
+			//op::opLog("\n------------------------");
+			//op::opLog("Hip Points: " + std::to_string(midHip.x) + "/" + std::to_string(midHip.y));
+			//op::opLog("Knee Points: " + std::to_string(knee.x) + "/" + std::to_string(knee.y));
+			//op::opLog("Knee angle: " + std::to_string(angleInDegree), op::Priority::Max);
+			//op::opLog("------------------------");
 		}
 		return angleInDegree > 40;
+	}
+
+	bool sendUDPMessage(SOCKET sock, coordinate coordinates) {
+		// Set up the server address and port
+		sockaddr_in serverAddress{};
+		serverAddress.sin_family = AF_INET;
+		serverAddress.sin_port = htons(UDP_PORT);
+		if (inet_pton(AF_INET, "127.0.0.1", &(serverAddress.sin_addr)) <= 0) {
+			std::cerr << "Invalid address." << std::endl;
+			closesocket(sock);
+			WSACleanup();
+			return false;
+		}
+
+		// Send data to the server
+		char* message = reinterpret_cast<char*>(&coordinates);
+		int messageLength = sizeof(coordinate);
+		int bytesSent = sendto(sock, message, messageLength, 0, (sockaddr*)&serverAddress, sizeof(serverAddress));
+		if (bytesSent == SOCKET_ERROR) {
+			std::cerr << "Failed to send data: " << WSAGetLastError() << std::endl;
+			closesocket(sock);
+			WSACleanup();
+			return false;
+		}
+		return true;
 	}
 };
 
@@ -312,6 +361,22 @@ int tutorialApiCpp()
 		// User processing
 		UserOutputClass userOutputClass;
 		bool userWantsToExit = false;
+
+		// Initialize Winsock
+		WSADATA wsaData;
+		if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+			std::cerr << "Failed to initialize Winsock." << std::endl;
+			return 1;
+		}
+
+
+		// Create a UDP socket
+		SOCKET sock = socket(AF_INET, SOCK_DGRAM, 0);
+		if (sock == INVALID_SOCKET) {
+			std::cerr << "Failed to create socket: " << WSAGetLastError() << std::endl;
+			WSACleanup();
+			return false;
+		}
 		while (!userWantsToExit)
 		{
 			// Pop frame
@@ -319,7 +384,11 @@ int tutorialApiCpp()
 			if (opWrapper.waitAndPop(datumProcessed))
 			{
 				userOutputClass.printKeypoints(datumProcessed);
-				userOutputClass.splitPersons(datumProcessed);
+				auto coordinates = userOutputClass.splitPersons(datumProcessed);
+				// Send the UDP message once
+				if (!userOutputClass.sendUDPMessage(sock, coordinates)) {
+					std::cout << "Failed to send UDP message." << std::endl;
+				}
 				if (!FLAGS_no_display)
 					userWantsToExit = userOutputClass.display(datumProcessed);
 			}
@@ -330,6 +399,8 @@ int tutorialApiCpp()
 			else
 				op::opLog("Processed datum could not be emplaced.", op::Priority::High);
 		}
+
+		WSACleanup();
 
 		op::opLog("Stopping thread(s)", op::Priority::High);
 		opWrapper.stop();
