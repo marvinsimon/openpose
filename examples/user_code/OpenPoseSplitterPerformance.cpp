@@ -109,6 +109,7 @@ public:
         int boxWidth = width / 2;
         int boxHeight = height / 2;
 
+        /* Remove boxes
         const std::vector<cv::Rect> boxes = {
             cv::Rect(0, boxHeight, boxWidth, boxHeight / 2),							//Left Upper
             cv::Rect(boxWidth, boxHeight, boxWidth, boxHeight / 2),						//Right Upper
@@ -119,7 +120,7 @@ public:
         {
             cv::Scalar color(0, 255, 0);
             cv::rectangle(cvMat, boxes[i], color, 4);
-        }
+        }*/
 
 
         std::array<int, 4> personsInBox{ 0 };
@@ -128,17 +129,19 @@ public:
             const double x = keypoints[8].x != 0 ? keypoints[8].x : keypoints[1].x;
             const double y = keypoints[8].y != 0 ? keypoints[8].y : keypoints[1].y;
 
-            int boxIndex = -1;
+            int boxIndex = 0;
 
-            for (int i = 0; i < 4; i++) {
+            /* Ignore boxes
+            for (int i = 0; i < 1; i++) {
+               
                 const cv::Rect& box = boxes[i];
                 if (x >= box.x && x < box.x + box.width && y >= box.y && y < box.y + box.height) {
                     boxIndex = i;
                     break;
                 }
-            }
+            }*/
 
-            if (boxIndex != -1) {
+            if (boxIndex == 0) {
                 cv::Scalar color(0, 255, 0);
                 std::string label = "Person in box " + std::to_string(boxIndex + 1);
                 cv::Point textPosition(static_cast<int>(x), static_cast<int>(y) - 10);
