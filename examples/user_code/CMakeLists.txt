@@ -4,7 +4,8 @@
 #     ADD_HERE_YOUR_FILE1.hpp
 #     ADD_HERE_YOUR_FILE2.cpp
 #     # ...
-     OpenPoseSplitter.cpp)
+     #OpenPoseSplitter.cpp
+	 OpenPoseSplitterPerformance.cpp)
 
 foreach(USER_CODE_FILE ${USER_CODE_FILES})
 

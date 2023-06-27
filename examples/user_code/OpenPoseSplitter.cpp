@@ -9,6 +9,7 @@
 #include <openpose/flags.hpp>
 // OpenPose dependencies
 #include <openpose/headers.hpp>
+
 #include <WinSock2.h>
 #include <Ws2tcpip.h>
 #pragma comment(lib, "ws2_32.lib")
@@ -157,28 +158,28 @@ public:
 	coordinate calculateCoordinatesStanding(std::array<int, 4> personsInBox, std::array<int, 4> personsInBoxStanding) {
 		for (int i = 0; i < personsInBox.size(); i++) {
 			maxPersonsPerBox[i] = max(maxPersonsPerBox[i], personsInBox[i]);
-			op::opLog("MaxPerson Box " + std::to_string(i) + ": " + std::to_string(maxPersonsPerBox[i]));
+			//op::opLog("MaxPerson Box " + std::to_string(i) + ": " + std::to_string(maxPersonsPerBox[i]));
 		}
 		std::array<coordinate, 4> averagePersonsStanding{};
-		averagePersonsStanding[0].x = -1.0 * (maxPersonsPerBox[0] != 0 ? personsInBoxStanding[0] / maxPersonsPerBox[0] : 0.0);
-		averagePersonsStanding[0].y = 1.0 * (maxPersonsPerBox[0] != 0 ? personsInBoxStanding[0] / maxPersonsPerBox[0] : 0.0);
+		averagePersonsStanding[0].x = -1.0 * (maxPersonsPerBox[0] != 0 ? static_cast<double>(personsInBoxStanding[0]) / static_cast<double>(maxPersonsPerBox[0]) : 0.0);
+		averagePersonsStanding[0].y = 1.0 * (maxPersonsPerBox[0] != 0 ? static_cast<double>(personsInBoxStanding[0]) / static_cast<double>(maxPersonsPerBox[0]) : 0.0);
 
-		averagePersonsStanding[1].x = 1.0 * (maxPersonsPerBox[1] != 0 ? (personsInBoxStanding[1] / maxPersonsPerBox[1]) : 0.0);
-		averagePersonsStanding[1].y = 1.0 * (maxPersonsPerBox[1] != 0 ? (personsInBoxStanding[1] / maxPersonsPerBox[1]) : 0.0);
+		averagePersonsStanding[1].x = 1.0 * (maxPersonsPerBox[1] != 0 ? static_cast<double>(personsInBoxStanding[1]) / static_cast<double>(maxPersonsPerBox[1]) : 0.0);
+		averagePersonsStanding[1].y = 1.0 * (maxPersonsPerBox[1] != 0 ? static_cast<double>(personsInBoxStanding[1]) / static_cast<double>(maxPersonsPerBox[1]) : 0.0);
 
 
-		averagePersonsStanding[2].x = -1.0 * (maxPersonsPerBox[2] != 0 ? (personsInBoxStanding[2] / maxPersonsPerBox[2]) : 0.0);
-		averagePersonsStanding[2].y = -1.0 * (maxPersonsPerBox[2] != 0 ? (personsInBoxStanding[2] / maxPersonsPerBox[2]) : 0.0);
+		averagePersonsStanding[2].x = -1.0 * (maxPersonsPerBox[2] != 0 ? static_cast<double>(personsInBoxStanding[2]) / static_cast<double>(maxPersonsPerBox[2]) : 0.0);
+		averagePersonsStanding[2].y = -1.0 * (maxPersonsPerBox[2] != 0 ? static_cast<double>(personsInBoxStanding[2]) / static_cast<double>(maxPersonsPerBox[2]) : 0.0);
 																														  
-		averagePersonsStanding[3].x = 1.0 * (maxPersonsPerBox[3] != 0 ? personsInBoxStanding[3] / maxPersonsPerBox[3] : 0.0);
-		averagePersonsStanding[3].y = -1.0 * (maxPersonsPerBox[3] != 0 ? personsInBoxStanding[3] / maxPersonsPerBox[3] : 0.0);
+		averagePersonsStanding[3].x = 1.0 * (maxPersonsPerBox[3] != 0 ? static_cast<double>(personsInBoxStanding[3]) / static_cast<double>(maxPersonsPerBox[3]) : 0.0);
+		averagePersonsStanding[3].y = -1.0 * (maxPersonsPerBox[3] != 0 ? static_cast<double>(personsInBoxStanding[3]) / static_cast<double>(maxPersonsPerBox[3]) : 0.0);
 
 		coordinate cord{};
 
 		cord.x = averagePersonsStanding[0].x + averagePersonsStanding[1].x + averagePersonsStanding[2].x + averagePersonsStanding[3].x;
 		cord.y = averagePersonsStanding[0].y + averagePersonsStanding[1].y + averagePersonsStanding[2].y + averagePersonsStanding[3].y;
 
-		//op::opLog("x: " + std::to_string(cord.x) + ", y: " + std::to_string(cord.y));
+		op::opLog("x: " + std::to_string(cord.x) + ", y: " + std::to_string(cord.y));
 		return cord;
 	}
 
