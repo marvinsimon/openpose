@@ -17,7 +17,7 @@
 #pragma comment(lib, "ws2_32.lib")
 
 constexpr long double PI = 3.141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825342117067982148086513282306647093844;
-constexpr int UDP_PORT = 12345;
+constexpr int UDP_PORT = 3065;
 
 // Custom OpenPose flags
 // 
@@ -30,8 +30,8 @@ class WUserOutput : public op::WorkerConsumer<std::shared_ptr<std::vector<std::s
 {
 private:
     struct coordinate {
-        double x;
-        double y;
+        float x;
+        float y;
     };
     std::vector<std::vector<coordinate>> keyPointsPerson;
     std::array<int, 4> maxPersonsPerBox{ 0 };
@@ -125,8 +125,8 @@ public:
         std::array<int, 4> personsInBox{ 0 };
         std::array<int, 4> personsInBoxStanding{ 0 };
         for (const auto& keypoints : keyPointsPerson) {
-            const double x = keypoints[8].x != 0 ? keypoints[8].x : keypoints[1].x;
-            const double y = keypoints[8].y != 0 ? keypoints[8].y : keypoints[1].y;
+            const float x = keypoints[8].x != 0 ? keypoints[8].x : keypoints[1].x;
+            const float y = keypoints[8].y != 0 ? keypoints[8].y : keypoints[1].y;
 
             int boxIndex = -1;
 
@@ -163,18 +163,18 @@ public:
             //op::opLog("MaxPerson Box " + std::to_string(i) + ": " + std::to_string(maxPersonsPerBox[i]));
         }
         std::array<coordinate, 4> averagePersonsStanding{};
-        averagePersonsStanding[0].x = -1.0 * (maxPersonsPerBox[0] != 0 ? static_cast<double>(personsInBoxStanding[0]) / static_cast<double>(maxPersonsPerBox[0]) : 0.0);
-        averagePersonsStanding[0].y = 1.0 * (maxPersonsPerBox[0] != 0 ? static_cast<double>(personsInBoxStanding[0]) / static_cast<double>(maxPersonsPerBox[0]) : 0.0);
+        averagePersonsStanding[0].x = -1.0 * (maxPersonsPerBox[0] != 0 ? static_cast<float>(personsInBoxStanding[0]) / static_cast<float>(maxPersonsPerBox[0]) : 0.0);
+        averagePersonsStanding[0].y = 1.0 * (maxPersonsPerBox[0] != 0 ? static_cast<float>(personsInBoxStanding[0]) / static_cast<float>(maxPersonsPerBox[0]) : 0.0);
 
-        averagePersonsStanding[1].x = 1.0 * (maxPersonsPerBox[1] != 0 ? static_cast<double>(personsInBoxStanding[1]) / static_cast<double>(maxPersonsPerBox[1]) : 0.0);
-        averagePersonsStanding[1].y = 1.0 * (maxPersonsPerBox[1] != 0 ? static_cast<double>(personsInBoxStanding[1]) / static_cast<double>(maxPersonsPerBox[1]) : 0.0);
+        averagePersonsStanding[1].x = 1.0 * (maxPersonsPerBox[1] != 0 ? static_cast<float>(personsInBoxStanding[1]) / static_cast<float>(maxPersonsPerBox[1]) : 0.0);
+        averagePersonsStanding[1].y = 1.0 * (maxPersonsPerBox[1] != 0 ? static_cast<float>(personsInBoxStanding[1]) / static_cast<float>(maxPersonsPerBox[1]) : 0.0);
 
 
-        averagePersonsStanding[2].x = -1.0 * (maxPersonsPerBox[2] != 0 ? static_cast<double>(personsInBoxStanding[2]) / static_cast<double>(maxPersonsPerBox[2]) : 0.0);
-        averagePersonsStanding[2].y = -1.0 * (maxPersonsPerBox[2] != 0 ? static_cast<double>(personsInBoxStanding[2]) / static_cast<double>(maxPersonsPerBox[2]) : 0.0);
+        averagePersonsStanding[2].x = -1.0 * (maxPersonsPerBox[2] != 0 ? static_cast<float>(personsInBoxStanding[2]) / static_cast<float>(maxPersonsPerBox[2]) : 0.0);
+        averagePersonsStanding[2].y = -1.0 * (maxPersonsPerBox[2] != 0 ? static_cast<float>(personsInBoxStanding[2]) / static_cast<float>(maxPersonsPerBox[2]) : 0.0);
 
-        averagePersonsStanding[3].x = 1.0 * (maxPersonsPerBox[3] != 0 ? static_cast<double>(personsInBoxStanding[3]) / static_cast<double>(maxPersonsPerBox[3]) : 0.0);
-        averagePersonsStanding[3].y = -1.0 * (maxPersonsPerBox[3] != 0 ? static_cast<double>(personsInBoxStanding[3]) / static_cast<double>(maxPersonsPerBox[3]) : 0.0);
+        averagePersonsStanding[3].x = 1.0 * (maxPersonsPerBox[3] != 0 ? static_cast<float>(personsInBoxStanding[3]) / static_cast<float>(maxPersonsPerBox[3]) : 0.0);
+        averagePersonsStanding[3].y = -1.0 * (maxPersonsPerBox[3] != 0 ? static_cast<float>(personsInBoxStanding[3]) / static_cast<float>(maxPersonsPerBox[3]) : 0.0);
 
         coordinate cord{};
 
@@ -202,13 +202,13 @@ public:
             return true; // Person sitting
         }
 
-        const double lengthHip = sqrt(pow(midHip.x, 2) + pow(midHip.y, 2));
-        const double lengthKnee = sqrt(pow(knee.x, 2) + pow(knee.y, 2));
+        const float lengthHip = sqrt(pow(midHip.x, 2) + pow(midHip.y, 2));
+        const float lengthKnee = sqrt(pow(knee.x, 2) + pow(knee.y, 2));
 
-        const double nSkalar = (midHip.x * knee.x) + (midHip.y * knee.y);
+        const float nSkalar = (midHip.x * knee.x) + (midHip.y * knee.y);
 
-        const double kneeAngleInRad = acos(nSkalar / (lengthHip * lengthKnee));
-        const auto angleInDegree = kneeAngleInRad * 360.0 / (2 * PI);
+        const float kneeAngleInRad = acos(nSkalar / (lengthHip * lengthKnee));
+        const float angleInDegree = kneeAngleInRad * 360.0 / (2 * PI);
         if (angleInDegree > 40) {
             //op::opLog("\n------------------------");
             //op::opLog("Hip Points: " + std::to_string(midHip.x) + "/" + std::to_string(midHip.y));
@@ -244,6 +244,18 @@ public:
         return true;
     }
 
+    coordinate normalizeVector(coordinate vector) 
+    {
+        float minValue = min(vector.x, vector.y);
+        float maxValue = max(vector.x, vector.y);
+
+        // Calculate the range
+        float range = maxValue - minValue;
+
+        // Normalize each element in the array
+        return { ((vector.x - minValue) / range) * 2 - 1,  ((vector.y - minValue) / range) * 2 - 1 };  // Normalize between -1 and +1
+    }
+
     void workConsumer(const std::shared_ptr<std::vector<std::shared_ptr<op::Datum>>>& datumsPtr)
     {
         try
@@ -256,7 +268,8 @@ public:
                 printKeypoints(datumsPtr);
 
                 auto result = splitPersons(datumsPtr);
-                sendUDPMessage(result);
+                
+                sendUDPMessage(normalizeVector(result));
 
                 // Display results (if enabled)
                 if (!FLAGS_no_display)
