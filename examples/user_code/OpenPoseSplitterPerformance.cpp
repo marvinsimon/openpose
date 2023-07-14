@@ -10,6 +10,7 @@
 #include <openpose/flags.hpp>
 // OpenPose dependencies
 #include <openpose/headers.hpp>
+#include <algorithm>
 
 
 #include <WinSock2.h>
@@ -59,7 +60,6 @@ public:
 
     void printKeypoints(const std::shared_ptr<std::vector<std::shared_ptr<op::Datum>>>& datumsPtr)
     {
-        // Example: How to use the pose keypoints
         if (datumsPtr != nullptr && !datumsPtr->empty())
         {
             keyPointsPerson.clear();
@@ -96,12 +96,12 @@ public:
 
     coordinate splitPersons(const std::shared_ptr<std::vector<std::shared_ptr<op::Datum>>>& datumsPtr)
     {
-        static double prevFrameTime = 0.0;
         if (datumsPtr == nullptr || datumsPtr->empty()) {
             op::opLog("Nullptr or empty datumsPtr found.", op::Priority::High);
             return coordinate{};
         }
 
+        // Get the OpenCV Matrix for the frame
         const cv::Mat cvMat = OP_OP2CVCONSTMAT(datumsPtr->at(0)->cvOutputData);
         int width = cvMat.cols;
         int height = cvMat.rows;
@@ -109,6 +109,7 @@ public:
         int boxWidth = width / 2;
         int boxHeight = height / 2;
 
+        //Calculate the boxes to be a quarter of the screens and stacked
         const std::vector<cv::Rect> boxes = {
             cv::Rect(0, boxHeight, boxWidth, boxHeight / 2),							//Left Upper
             cv::Rect(boxWidth, boxHeight, boxWidth, boxHeight / 2),						//Right Upper
@@ -117,6 +118,7 @@ public:
         };
         for (int i = 0; i < boxes.size(); i++)
         {
+            // Draw the rectangles on a board
             cv::Scalar color(0, 255, 0);
             cv::rectangle(cvMat, boxes[i], color, 4);
         }
@@ -124,26 +126,36 @@ public:
 
         std::array<int, 4> personsInBox{ 0 };
         std::array<int, 4> personsInBoxStanding{ 0 };
-        for (const auto& keypoints : keyPointsPerson) {
-            const float x = keypoints[8].x != 0 ? keypoints[8].x : keypoints[1].x;
-            const float y = keypoints[8].y != 0 ? keypoints[8].y : keypoints[1].y;
+        // Iterate over the persons keypoints
+        for (const auto& keypointsOfPerson : keyPointsPerson) {
+            // Take either the neck or hip for the association
+            const float x = keypointsOfPerson[8].x != 0 ? keypointsOfPerson[8].x : keypointsOfPerson[1].x;
+            const float y = keypointsOfPerson[8].y != 0 ? keypointsOfPerson[8].y : keypointsOfPerson[1].y;
 
             int boxIndex = -1;
 
+            // Check if the keypoint is in one of the boxes
             for (int i = 0; i < 4; i++) {
                 const cv::Rect& box = boxes[i];
                 if (x >= box.x && x < box.x + box.width && y >= box.y && y < box.y + box.height) {
+                    // Save the box and leave the loop early
                     boxIndex = i;
                     break;
                 }
             }
 
+            // Check if the keypoint was associated with one of the boxes
             if (boxIndex != -1) {
+
                 cv::Scalar color(0, 255, 0);
                 std::string label = "Person in box " + std::to_string(boxIndex + 1);
                 cv::Point textPosition(static_cast<int>(x), static_cast<int>(y) - 10);
+
+                // Count up the persons in the box
                 personsInBox[boxIndex]++;
-                if (checkSitting(keypoints)) {
+
+                // Check if a person is sitting
+                if (checkSitting(keypointsOfPerson)) {
                     op::opLog(label);
                     label += " sitting";
                 }
@@ -151,6 +163,7 @@ public:
                     label += " standing";
                     personsInBoxStanding[boxIndex]++;
                 }
+                // Add a label to the person
                 cv::putText(cvMat, label, textPosition, cv::FONT_HERSHEY_SIMPLEX, 1, color, 2);
             }
         }
@@ -158,26 +171,24 @@ public:
     }
 
     coordinate calculateCoordinatesStanding(std::array<int, 4> personsInBox, std::array<int, 4> personsInBoxStanding) {
+
+        // Check if a new max in a box was reached and save if it was
         for (int i = 0; i < personsInBox.size(); i++) {
             maxPersonsPerBox[i] = max(maxPersonsPerBox[i], personsInBox[i]);
-            //op::opLog("MaxPerson Box " + std::to_string(i) + ": " + std::to_string(maxPersonsPerBox[i]));
         }
+
+
+        // Calculate the coordinates after the provided formula
         std::array<coordinate, 4> averagePersonsStanding{};
-        averagePersonsStanding[0].x = -1.0 * (maxPersonsPerBox[0] != 0 ? static_cast<float>(personsInBoxStanding[0]) / static_cast<float>(maxPersonsPerBox[0]) : 0.0);
-        averagePersonsStanding[0].y = 1.0 * (maxPersonsPerBox[0] != 0 ? static_cast<float>(personsInBoxStanding[0]) / static_cast<float>(maxPersonsPerBox[0]) : 0.0);
+        for (int i = 0; i < 4; i++) {
+            float ratio = maxPersonsPerBox[i] != 0 ? static_cast<float>(personsInBoxStanding[i]) / static_cast<float>(maxPersonsPerBox[i]) : 0.0;
 
-        averagePersonsStanding[1].x = 1.0 * (maxPersonsPerBox[1] != 0 ? static_cast<float>(personsInBoxStanding[1]) / static_cast<float>(maxPersonsPerBox[1]) : 0.0);
-        averagePersonsStanding[1].y = 1.0 * (maxPersonsPerBox[1] != 0 ? static_cast<float>(personsInBoxStanding[1]) / static_cast<float>(maxPersonsPerBox[1]) : 0.0);
-
-
-        averagePersonsStanding[2].x = -1.0 * (maxPersonsPerBox[2] != 0 ? static_cast<float>(personsInBoxStanding[2]) / static_cast<float>(maxPersonsPerBox[2]) : 0.0);
-        averagePersonsStanding[2].y = -1.0 * (maxPersonsPerBox[2] != 0 ? static_cast<float>(personsInBoxStanding[2]) / static_cast<float>(maxPersonsPerBox[2]) : 0.0);
-
-        averagePersonsStanding[3].x = 1.0 * (maxPersonsPerBox[3] != 0 ? static_cast<float>(personsInBoxStanding[3]) / static_cast<float>(maxPersonsPerBox[3]) : 0.0);
-        averagePersonsStanding[3].y = -1.0 * (maxPersonsPerBox[3] != 0 ? static_cast<float>(personsInBoxStanding[3]) / static_cast<float>(maxPersonsPerBox[3]) : 0.0);
+            averagePersonsStanding[i].x = (i % 2 == 0 ? -1.0 : 1.0) * ratio;
+            averagePersonsStanding[i].y = (i < 2 ? 1.0 : -1.0) * ratio;
+        }
 
         coordinate cord{};
-
+        // Summarize the average persons per box and add them together
         cord.x = averagePersonsStanding[0].x + averagePersonsStanding[1].x + averagePersonsStanding[2].x + averagePersonsStanding[3].x;
         cord.y = averagePersonsStanding[0].y + averagePersonsStanding[1].y + averagePersonsStanding[2].y + averagePersonsStanding[3].y;
 
@@ -186,37 +197,43 @@ public:
     }
 
     bool checkSitting(const std::vector<coordinate>& keypointsSinglePerson) {
+
+        // Get all relevant Keypoints
         coordinate midHip = keypointsSinglePerson[8];
         const auto& rKnee = keypointsSinglePerson[10];
         const auto& lKnee = keypointsSinglePerson[13];
         const auto& neck = keypointsSinglePerson[1];
         coordinate knee = rKnee.x != 0 ? rKnee : lKnee;
 
-        knee.x -= neck.x;
-        knee.y -= neck.y;
-
-        midHip.x -= neck.x;
-        midHip.y -= neck.y;
-
-        if (midHip.x == 0 || knee.x == 0) {
+        // Check if any of these is 0,#
+        // If so the person is probably sitting as the skeleton couldn´t be applied
+        if (midHip.x == 0 || knee.x == 0 || neck.x == 0) {
             return true; // Person sitting
         }
 
+        // Calculate the Vector Neck->Knee
+        knee.x -= neck.x;
+        knee.y -= neck.y;
+
+        // Calculate the Vector Neck->Hip
+        midHip.x -= neck.x;
+        midHip.y -= neck.y;
+
+
+        // Calculate magnitude/size/length
         const float lengthHip = sqrt(pow(midHip.x, 2) + pow(midHip.y, 2));
         const float lengthKnee = sqrt(pow(knee.x, 2) + pow(knee.y, 2));
 
+        // Calculate skalar
         const float nSkalar = (midHip.x * knee.x) + (midHip.y * knee.y);
 
+        // Calculate the angle in rad
         const float kneeAngleInRad = acos(nSkalar / (lengthHip * lengthKnee));
+
+        // Convert into degree
         const float angleInDegree = kneeAngleInRad * 360.0 / (2 * PI);
-        if (angleInDegree > 40) {
-            //op::opLog("\n------------------------");
-            //op::opLog("Hip Points: " + std::to_string(midHip.x) + "/" + std::to_string(midHip.y));
-            //op::opLog("Knee Points: " + std::to_string(knee.x) + "/" + std::to_string(knee.y));
-            //op::opLog("Knee angle: " + std::to_string(angleInDegree), op::Priority::Max);
-            //op::opLog("------------------------");
-        }
-        return angleInDegree > 40;
+
+        return angleInDegree >= 40;
     }
 
     bool sendUDPMessage(coordinate coordinates) {
@@ -244,16 +261,23 @@ public:
         return true;
     }
 
-    coordinate normalizeVector(coordinate vector) 
+    coordinate normalizeVector(coordinate coord) 
     {
-        float minValue = min(vector.x, vector.y);
-        float maxValue = max(vector.x, vector.y);
+        float minValue = min(coord.x, coord.y);
+        float maxValue = max(coord.x, coord.y);
 
         // Calculate the range
         float range = maxValue - minValue;
 
-        // Normalize each element in the array
-        return { ((vector.x - minValue) / range) * 2 - 1,  ((vector.y - minValue) / range) * 2 - 1 };  // Normalize between -1 and +1
+        // Normalize each element in the coordinate struct
+        float normalizedX = ((coord.x - minValue) / range) * 2 - 1;
+        float normalizedY = ((coord.y - minValue) / range) * 2 - 1;
+
+        // Clamp the values within the range of -1 and 1
+        normalizedX = std::clamp(normalizedX, -1.0f, 1.0f);
+        normalizedY = std::clamp(normalizedY, -1.0f, 1.0f);
+
+        return { normalizedX, normalizedY };
     }
 
     void workConsumer(const std::shared_ptr<std::vector<std::shared_ptr<op::Datum>>>& datumsPtr)
