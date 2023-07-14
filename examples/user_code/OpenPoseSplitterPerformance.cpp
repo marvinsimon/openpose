@@ -10,8 +10,6 @@
 #include <openpose/flags.hpp>
 // OpenPose dependencies
 #include <openpose/headers.hpp>
-#include <algorithm>
-
 
 #include <WinSock2.h>
 #include <Ws2tcpip.h>
@@ -274,8 +272,8 @@ public:
         float normalizedY = ((coord.y - minValue) / range) * 2 - 1;
 
         // Clamp the values within the range of -1 and 1
-        normalizedX = std::clamp(normalizedX, -1.0f, 1.0f);
-        normalizedY = std::clamp(normalizedY, -1.0f, 1.0f);
+        normalizedX = normalizedX > 1.0f ? 1.0f : (normalizedX < -1.0f ? -1.0f : normalizedX);
+        normalizedY = normalizedY > 1.0f ? 1.0f : (normalizedY < -1.0f ? -1.0f : normalizedY);
 
         return { normalizedX, normalizedY };
     }
