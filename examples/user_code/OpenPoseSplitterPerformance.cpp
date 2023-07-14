@@ -154,7 +154,7 @@ public:
 
                 // Check if a person is sitting
                 if (checkSitting(keypointsOfPerson)) {
-                    op::opLog(label);
+                    //op::opLog(label);
                     label += " sitting";
                 }
                 else {
@@ -190,7 +190,6 @@ public:
         cord.x = averagePersonsStanding[0].x + averagePersonsStanding[1].x + averagePersonsStanding[2].x + averagePersonsStanding[3].x;
         cord.y = averagePersonsStanding[0].y + averagePersonsStanding[1].y + averagePersonsStanding[2].y + averagePersonsStanding[3].y;
 
-        op::opLog("x: " + std::to_string(cord.x) + ", y: " + std::to_string(cord.y));
         return cord;
     }
 
@@ -246,6 +245,7 @@ public:
             return false;
         }
 
+
         // Send data to the server
         char* message = reinterpret_cast<char*>(&coordinates);
         int messageLength = sizeof(coordinate);
@@ -266,15 +266,14 @@ public:
 
         // Calculate the range
         float range = maxValue - minValue;
-
-        // Normalize each element in the coordinate struct
-        float normalizedX = ((coord.x - minValue) / range) * 2 - 1;
-        float normalizedY = ((coord.y - minValue) / range) * 2 - 1;
+        float normalizedX = coord.x;
+        float normalizedY = coord.y;
 
         // Clamp the values within the range of -1 and 1
         normalizedX = normalizedX > 1.0f ? 1.0f : (normalizedX < -1.0f ? -1.0f : normalizedX);
         normalizedY = normalizedY > 1.0f ? 1.0f : (normalizedY < -1.0f ? -1.0f : normalizedY);
 
+        op::opLog("x: " + std::to_string(normalizedX) + ", y: " + std::to_string(normalizedY));
         return { normalizedX, normalizedY };
     }
 
